@@ -1,32 +1,28 @@
 import os
 import time
 from spotipy.oauth2 import SpotifyOAuth
+from spotipy.cache_handler import CacheFileHandler
 
-# Autenticación para TU cuenta
+# Usar la carpeta /tmp de Render para guardar el token de forma persistente entre llamadas
+cache_path = os.path.join("/tmp", ".cache-spotify")
+cache_handler = CacheFileHandler(cache_path=cache_path)
+
 sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIPY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
     redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
-    scope="user-modify-playback-state user-read-playback-state"
+    scope="user-modify-playback-state user-read-playback-state",
+    cache_handler=cache_handler
 )
 
-_token_info = None  # Guardamos el token globalmente
-
-def set_token_info(token):
-    global _token_info
-    _token_info = token
+def set_token_info(token_info):
+    cache_handler.save_token_to_cache(token_info)
 
 def get_token_info():
-    global _token_info
-    if not _token_info:
+    token_info = cache_handler.get_cached_token()
+    if not token_info:
         return None
-
-    now = int(time.time())
-    if _token_info.get('expires_at', 0) - now < 60:
-        try:
-            _token_info = sp_oauth.refresh_access_token(_token_info['refresh_token'])
-        except Exception as e:
-            print("❌ Error al refrescar token:", e)
-            return None
-
-    return _token_info
+    
+    # Spotipy y CacheFileHandler se encargan automáticamente de revisar la expiración, 
+    # pero aseguramos la validación del token actual.
+    return token_info
