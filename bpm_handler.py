@@ -6,7 +6,7 @@ import random
 bpm_blueprint = Blueprint("bpm", __name__)
 
 playlist_uris = {
-    "relajado": "spotify:playlist:2PorBhwNt28E7OzrIYCauY",
+    "relajado": "spotify:playlist:3Lqw8YaDSWQRTkiIejggVT",
     "normal":   "spotify:playlist:0EwgVn5TPobpQd5pucCppp",
     "agitado":  "spotify:playlist:12TzlhPrV36sAB4TN0dJF8"
 }
