@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from spotipy import Spotify
-from auth import get_token_info
+from auth import sp_oauth
 import random
 
 bpm_blueprint = Blueprint("bpm", __name__)
@@ -19,71 +19,47 @@ def recibir_bpm():
 
     try:
         bpm = int(data["bpm"])
-        if bpm < 75:
-            categoria = "relajado"
-        elif bpm <= 110:
-            categoria = "normal"
-        else:
-            categoria = "agitado"
+        categoria = "relajado" if bpm < 75 else ("normal" if bpm <= 110 else "agitado")
 
-        token_info = get_token_info()
+        token_info = sp_oauth.get_cached_token()
         if not token_info:
-            return jsonify({"error": "Token inválido"}), 403
+            return jsonify({"error": "No autorizado. Inicia sesión en la web."}), 403
 
         sp = Spotify(auth=token_info["access_token"])
 
-        # 1. Verificar si hay un dispositivo activo antes de ordenar reproducir
+        # Detectar dispositivo activo en Spotify
         devices = sp.devices()
         if not devices or not devices.get("devices"):
-            return jsonify({"error": "No hay ningún dispositivo de Spotify activo. Abre Spotify en tu app."}), 400
+            return jsonify({"error": "Abre Spotify en tu app o PC"}), 400
         
-        # Buscar un dispositivo activo o usar el primero disponible
-        active_device_id = None
-        for d in devices["devices"]:
-            if d.get("is_active"):
-                active_device_id = d["id"]
-                break
-        if not active_device_id:
-            active_device_id = devices["devices"][0]["id"]
+        active_device_id = next((d["id"] for d in devices["devices"] if d.get("is_active")), devices["devices"][0]["id"])
 
-        # 2. Obtener canciones de la playlist
+        # Seleccionar canción aleatoria
         playlist_uri = playlist_uris[categoria]
         results = sp.playlist_items(playlist_uri, additional_types=['track'])
-        tracks = results["items"]
+        valid_tracks = [t["track"] for t in results["items"] if t and t.get("track")]
         
-        # Manejar paginación por si la playlist tiene más de 100 canciones
-        while results['next']:
-            results = sp.next(results)
-            tracks.extend(results['items'])
-
-        # Filtrar solo elementos válidos que tengan pista
-        valid_tracks = [t["track"] for t in tracks if t and t.get("track")]
         if not valid_tracks:
-            return jsonify({"error": "Playlist vacía o sin canciones válidas"}), 500
+            return jsonify({"error": "Playlist vacía"}), 500
 
         track = random.choice(valid_tracks)
-        track_uri = track["uri"]
-        track_name = track["name"]
-        
-        # 3. Forzar reproducción en el dispositivo detectado
-        sp.start_playback(device_id=active_device_id, uris=[track_uri])
+        sp.start_playback(device_id=active_device_id, uris=[track["uri"]])
 
         return jsonify({
             "message": "BPM recibido y música actualizada", 
-            "cancion": track_name, 
+            "cancion": track["name"], 
             "ya_reproduciendo": True
         }), 200
 
     except Exception as e:
-        print(f"Error en /bpm: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @bpm_blueprint.route("/estado_musica", methods=["GET"])
 def estado_musica():
     try:
-        token_info = get_token_info()
+        token_info = sp_oauth.get_cached_token()
         if not token_info:
-            return jsonify({"error": "Token inválido"}), 403
+            return jsonify({"reproduciendo": False, "cancion": "No autorizado"}), 200
 
         sp = Spotify(auth=token_info["access_token"])
         current = sp.current_playback()
@@ -91,7 +67,7 @@ def estado_musica():
             cancion = current["item"]["name"]
             return jsonify({"reproduciendo": True, "cancion": cancion}), 200
         else:
-            return jsonify({"reproduciendo": False, "cancion": None}), 200
+            return jsonify({"reproduciendo": False, "cancion": "Pausado"}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"reproduciendo": False, "cancion": str(e)}), 200
