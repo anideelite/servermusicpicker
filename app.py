@@ -1,6 +1,6 @@
 from flask import Flask, redirect, request, render_template, session
 from auth import sp_oauth, set_token_info, get_token_info
-from bpm_blueprint import bpm_blueprint  # O como lo tengas importado
+from bpm_handler import bpm_blueprint  # O como lo tengas importado
 from spotipy import Spotify
 import os
 
