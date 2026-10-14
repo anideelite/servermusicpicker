@@ -33,13 +33,7 @@ def recibir_bpm():
 
         sp = Spotify(auth=token_info["access_token"])
 
-        # Comprobar si ya hay música reproduciéndose
-        current = sp.current_playback()
-        if current and current.get("is_playing"):
-            track_name = current["item"]["name"]
-            return jsonify({"message": "BPM recibido", "cancion": track_name, "ya_reproduciendo": True}), 200
-
-        # No hay música reproduciéndose → seleccionar canción aleatoria
+        # Seleccionar y reproducir canción de la playlist según la categoría del BPM
         playlist_uri = playlist_uris[categoria]
         playlist = sp.playlist(playlist_uri)
         tracks = playlist["tracks"]["items"]
@@ -50,10 +44,12 @@ def recibir_bpm():
         random_index = random.randint(0, total_tracks - 1)
         track = tracks[random_index]["track"]
         track_uri = track["uri"]
+        
+        # Ordenar a Spotify que cambie a esta pista inmediatamente
         sp.start_playback(uris=[track_uri])
         track_name = track["name"]
 
-        return jsonify({"message": "BPM recibido", "cancion": track_name, "ya_reproduciendo": True}), 200
+        return jsonify({"message": "BPM recibido y música actualizada", "cancion": track_name, "ya_reproduciendo": True}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
