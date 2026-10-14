@@ -11,7 +11,6 @@ playlist_uris = {
     "agitado":  "spotify:playlist:3Lqw8YaDSWQRTkiIejggVT"
 }
 
-# Endpoint para recibir BPM y reproducir canción
 @bpm_blueprint.route("/bpm", methods=["POST"])
 def recibir_bpm():
     data = request.get_json()
@@ -33,28 +32,52 @@ def recibir_bpm():
 
         sp = Spotify(auth=token_info["access_token"])
 
-        # Seleccionar y reproducir canción de la playlist según la categoría del BPM
-        playlist_uri = playlist_uris[categoria]
-        playlist = sp.playlist(playlist_uri)
-        tracks = playlist["tracks"]["items"]
-        total_tracks = len(tracks)
-        if total_tracks == 0:
-            return jsonify({"error": "Playlist vacía"}), 500
-
-        random_index = random.randint(0, total_tracks - 1)
-        track = tracks[random_index]["track"]
-        track_uri = track["uri"]
+        # 1. Verificar si hay un dispositivo activo antes de ordenar reproducir
+        devices = sp.devices()
+        if not devices or not devices.get("devices"):
+            return jsonify({"error": "No hay ningún dispositivo de Spotify activo. Abre Spotify en tu app."}), 400
         
-        # Ordenar a Spotify que cambie a esta pista inmediatamente
-        sp.start_playback(uris=[track_uri])
-        track_name = track["name"]
+        # Buscar un dispositivo activo o usar el primero disponible
+        active_device_id = None
+        for d in devices["devices"]:
+            if d.get("is_active"):
+                active_device_id = d["id"]
+                break
+        if not active_device_id:
+            active_device_id = devices["devices"][0]["id"]
 
-        return jsonify({"message": "BPM recibido y música actualizada", "cancion": track_name, "ya_reproduciendo": True}), 200
+        # 2. Obtener canciones de la playlist
+        playlist_uri = playlist_uris[categoria]
+        results = sp.playlist_items(playlist_uri, additional_types=['track'])
+        tracks = results["items"]
+        
+        # Manejar paginación por si la playlist tiene más de 100 canciones
+        while results['next']:
+            results = sp.next(results)
+            tracks.extend(results['items'])
+
+        # Filtrar solo elementos válidos que tengan pista
+        valid_tracks = [t["track"] for t in tracks if t and t.get("track")]
+        if not valid_tracks:
+            return jsonify({"error": "Playlist vacía o sin canciones válidas"}), 500
+
+        track = random.choice(valid_tracks)
+        track_uri = track["uri"]
+        track_name = track["name"]
+        
+        # 3. Forzar reproducción en el dispositivo detectado
+        sp.start_playback(device_id=active_device_id, uris=[track_uri])
+
+        return jsonify({
+            "message": "BPM recibido y música actualizada", 
+            "cancion": track_name, 
+            "ya_reproduciendo": True
+        }), 200
 
     except Exception as e:
+        print(f"Error en /bpm: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-# Endpoint para consultar si hay música reproduciéndose
 @bpm_blueprint.route("/estado_musica", methods=["GET"])
 def estado_musica():
     try:
