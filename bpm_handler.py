@@ -59,7 +59,7 @@ def estado_musica():
     try:
         token_info = sp_oauth.get_cached_token()
         if not token_info:
-            return jsonify({"reproduciendo": False, "cancion": "No autorizado"}), 200
+            return jsonify({"ya_reproduciendo": False, "cancion": "No autorizado"}), 200
 
         sp = Spotify(auth=token_info["access_token"])
         current = sp.current_playback()
