@@ -65,9 +65,9 @@ def estado_musica():
         current = sp.current_playback()
         if current and current.get("is_playing"):
             cancion = current["item"]["name"]
-            return jsonify({"reproduciendo": True, "cancion": cancion}), 200
+            return jsonify({"ya_reproduciendo": True, "cancion": cancion}), 200
         else:
-            return jsonify({"reproduciendo": False, "cancion": "Pausado"}), 200
+            return jsonify({"ya_reproduciendo": False, "cancion": "Pausado"}), 200
 
     except Exception as e:
-        return jsonify({"reproduciendo": False, "cancion": str(e)}), 200
+        return jsonify({"ya_reproduciendo": False, "cancion": str(e)}), 200
