@@ -5,7 +5,7 @@ sp_oauth = SpotifyOAuth(
     client_id=os.environ.get("SPOTIPY_CLIENT_ID"),
     client_secret=os.environ.get("SPOTIPY_CLIENT_SECRET"),
     redirect_uri=os.environ.get("SPOTIPY_REDIRECT_URI"),
-    scope="user-read-playback-state user-modify-playback-state playlist-read-private playlist-read-collaborative",
+    scope="user-read-playback-state user-modify-playback-state playlist-read-private playlist-read-collaborative user-library-read",
     cache_path="/tmp/.cache",  # <--- Usamos /tmp para que Railway sí lo deje escribir
     show_dialog=True
 )
