@@ -5,12 +5,6 @@ import random
 
 bpm_blueprint = Blueprint("bpm", __name__)
 
-playlist_uris = {
-    "relajado": "spotify:collection:tracks",
-    "normal":   "spotify:collection:tracks",
-    "agitado":  "spotify:collection:tracks"
-}
-
 @bpm_blueprint.route("/bpm", methods=["POST"])
 def recibir_bpm():
     data = request.get_json()
@@ -19,7 +13,7 @@ def recibir_bpm():
 
     try:
         bpm = int(data["bpm"])
-        categoria = "relajado" if bpm < 75 else ("normal" if bpm <= 110 else "agitado")
+        # (El BPM clasifica la categoría, puedes usarlo si quieres filtrar por género o dejarlo pasar)
 
         token_info = sp_oauth.get_cached_token()
         if not token_info:
@@ -34,13 +28,12 @@ def recibir_bpm():
         
         active_device_id = next((d["id"] for d in devices["devices"] if d.get("is_active")), devices["devices"][0]["id"])
 
-        # Seleccionar canción aleatoria
-        playlist_uri = playlist_uris[categoria]
-        results = sp.playlist_items(playlist_uri, additional_types=['track'])
-        valid_tracks = [t["track"] for t in results["items"] if t and t.get("track")]
+        # Obtener canciones de tus "Me gusta"
+        results = sp.current_user_saved_tracks(limit=50)
+        valid_tracks = [item["track"] for item in results["items"] if item and item.get("track")]
         
         if not valid_tracks:
-            return jsonify({"error": "Playlist vacía"}), 500
+            return jsonify({"error": "No hay canciones en 'Me gusta'"}), 500
 
         track = random.choice(valid_tracks)
         sp.start_playback(device_id=active_device_id, uris=[track["uri"]])
